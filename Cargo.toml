@@ -1,0 +1,15 @@
+[package]
+name = "la-kill-em"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = { version = "0.8.0", features = ["serialize"] }
+bevy_asset_loader = "0.12.0"
+bevy_kira_audio = { version = "0.11.0", features = ["wav"] }
+bevy-inspector-egui = "0.12.1"
+bevy_ecs_tilemap = "0.7.0"
+ron = "0.7.0"
+serde = "1.0.136"

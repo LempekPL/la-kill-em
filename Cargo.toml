@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 bevy = { version = "0.8.0", features = ["serialize"] }
-bevy_asset_loader = "0.12.0"
+bevy_asset_loader = "0.12.1"
 bevy_kira_audio = { version = "0.11.0", features = ["wav"] }
 bevy-inspector-egui = "0.12.1"
 bevy_ecs_tilemap = "0.7.0"

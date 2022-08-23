@@ -10,7 +10,7 @@ use bevy_kira_audio::AudioPlugin;
 fn main() {
     let mut app = App::new();
     app.insert_resource(WindowDescriptor {
-        title: "gairun".to_string(),
+        title: "la-kill-em".to_string(),
         resizable: false,
         width: 1280.0,
         height: 720.0,

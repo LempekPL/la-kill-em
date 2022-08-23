@@ -1,5 +1,6 @@
+use bevy::app::AppExit;
 use bevy::prelude::*;
-use crate::AppState;
+use crate::{AppState, GameState};
 use crate::asset_loader::TextureAssets;
 use crate::Keyframes::Scale;
 
@@ -10,6 +11,12 @@ impl Plugin for MenuPlugin {
         app
             .add_system_set(SystemSet::on_enter(AppState::Menu)
                 .with_system(spawn_menu)
+            )
+            .add_system_set(SystemSet::on_update(AppState::Menu)
+                .with_system(button_handling)
+            )
+            .add_system_set(SystemSet::on_exit(AppState::Menu)
+                .with_system(despawn_menu)
             );
     }
 }
@@ -93,4 +100,38 @@ fn spawn_menu(
         .insert(Name::new("Quit button"))
         .id();
     commands.entity(menu).push_children(&vec![title, start_button, quit_button]);
+}
+
+fn despawn_menu(
+    mut commands: Commands,
+    mut q_menu: Query<Entity, With<MenuUILayer>>,
+) {
+    for ent in q_menu.iter_mut() {
+        commands.entity(ent).despawn_recursive();
+    }
+}
+
+#[allow(clippy::type_complexity)]
+fn button_handling(
+    mut app_exit_events: EventWriter<AppExit>,
+    mut q_interaction: Query<
+        (&Interaction, &ButtonType, &mut UiImage),
+        Changed<Interaction>,
+    >,
+    textures: Res<TextureAssets>,
+    mut app_state: ResMut<State<AppState>>,
+) {
+    for (interaction, button_type, mut image) in q_interaction.iter_mut() {
+        match (interaction, button_type) {
+            (Interaction::Clicked, ButtonType::ToGame) => app_state.set(AppState::Game(GameState::Playing)).unwrap(),
+            (Interaction::Clicked, ButtonType::ToMenu) => app_state.set(AppState::Menu).unwrap(),
+            (Interaction::Clicked, ButtonType::ToQuit) => app_exit_events.send(AppExit),
+            (Interaction::Hovered, ButtonType::ToGame) => *image = UiImage(textures.b_start_pressed.clone()),
+            (Interaction::Hovered, ButtonType::ToMenu) => todo!(),
+            (Interaction::Hovered, ButtonType::ToQuit) => *image = UiImage(textures.b_quit_pressed.clone()),
+            (Interaction::None, ButtonType::ToGame) => *image = UiImage(textures.b_start.clone()),
+            (Interaction::None, ButtonType::ToMenu) => todo!(),
+            (Interaction::None, ButtonType::ToQuit) => *image = UiImage(textures.b_quit.clone()),
+        }
+    }
 }

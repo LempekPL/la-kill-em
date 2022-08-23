@@ -10,11 +10,13 @@ use bevy_inspector_egui::WorldInspectorPlugin;
 use bevy_kira_audio::AudioPlugin;
 use crate::loading::LoadingPlugin;
 use crate::asset_loader::AssetsPlugin;
+use crate::camera::CameraPlugin;
+use crate::entity::EntityPlugin;
 use crate::menus::MenuPlugin;
 
 fn main() {
     let mut app = App::new();
-    app.insert_resource(ClearColor(Color::BLACK));
+    app.insert_resource(ClearColor(Color::GRAY));
     app.insert_resource(ImageSettings::default_nearest());
     app.insert_resource(WindowDescriptor {
         title: "la-kill-em".to_string(),
@@ -31,6 +33,8 @@ fn main() {
     app.add_plugin(LoadingPlugin);
     app.add_plugin(AssetsPlugin);
     app.add_plugin(MenuPlugin);
+    app.add_plugin(EntityPlugin);
+    app.add_plugin(CameraPlugin);
 
     app.run();
 }

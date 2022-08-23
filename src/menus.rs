@@ -104,9 +104,9 @@ fn spawn_menu(
 
 fn despawn_menu(
     mut commands: Commands,
-    mut q_menu: Query<Entity, With<MenuUILayer>>,
+    q_menu: Query<Entity, With<MenuUILayer>>,
 ) {
-    for ent in q_menu.iter_mut() {
+    for ent in q_menu.iter() {
         commands.entity(ent).despawn_recursive();
     }
 }

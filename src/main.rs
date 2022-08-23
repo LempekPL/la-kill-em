@@ -10,6 +10,7 @@ use bevy_inspector_egui::WorldInspectorPlugin;
 use bevy_kira_audio::AudioPlugin;
 use crate::loading::LoadingPlugin;
 use crate::asset_loader::AssetsPlugin;
+use crate::menus::MenuPlugin;
 
 fn main() {
     let mut app = App::new();
@@ -25,8 +26,11 @@ fn main() {
     app.add_plugins(DefaultPlugins);
     app.add_plugin(AudioPlugin);
     app.add_plugin(WorldInspectorPlugin::new());
+
+    // own plugins
     app.add_plugin(LoadingPlugin);
     app.add_plugin(AssetsPlugin);
+    app.add_plugin(MenuPlugin);
 
     app.run();
 }
@@ -36,12 +40,13 @@ pub enum AppState {
     Preload,
     LoadingAssets,
     Loading,
+
     Menu,
-    Game(InGameState),
+    Game(GameState),
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
-pub enum InGameState {
+pub enum GameState {
     Playing,
     Paused,
 }

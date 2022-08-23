@@ -18,6 +18,16 @@ pub struct FontAssets {
 pub struct TextureAssets {
     #[asset(path = "textures/player.png")]
     pub player: Handle<Image>,
+    #[asset(path = "textures/buttons/start.png")]
+    pub b_start: Handle<Image>,
+    #[asset(path = "textures/buttons/start-pressed.png")]
+    pub b_start_pressed: Handle<Image>,
+    #[asset(path = "textures/buttons/quit.png")]
+    pub b_quit: Handle<Image>,
+    #[asset(path = "textures/buttons/quit-pressed.png")]
+    pub b_quit_pressed: Handle<Image>,
+    #[asset(path = "textures/title.png")]
+    pub title: Handle<Image>,
 }
 
 pub struct AssetsPlugin;

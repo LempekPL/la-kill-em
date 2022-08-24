@@ -1,4 +1,3 @@
-use bevy::math::{Affine3A, Mat3A, Vec3A};
 use bevy::prelude::*;
 use bevy::render::texture::DEFAULT_IMAGE_HANDLE;
 use crate::asset_loader::TextureAssets;
@@ -15,7 +14,7 @@ pub fn spawn_player(
     texture: Res<TextureAssets>,
 ) {
     let gun = commands.spawn_bundle(SpriteBundle {
-        transform: Transform::from_xyz(3., -1.5, 1.),
+        transform: Transform::from_xyz(0., 0., 1.),
         texture: texture.basic_gun.clone(),
         ..default()
     })
@@ -23,10 +22,6 @@ pub fn spawn_player(
         .insert(Gun)
         .id();
     commands.spawn_bundle(PlayerBundle {
-        sprite: Sprite {
-            custom_size: Some(Vec2::new(16.0, 32.0)),
-            ..default()
-        },
         texture: texture.player.clone(),
         motion: Motion::new(0.1, 0.1),
         ..default()
@@ -47,12 +42,12 @@ pub fn despawn_player(
 }
 
 pub fn control_player(
-    mut q_motion: Query<(&mut Motion, &mut Sprite, &Controllable)>,
+    mut q_motion: Query<(&mut Motion, &Controllable), With<Player>>,
     keys: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
     let delta = time.delta_seconds() * 100.0;
-    for (mut motion, mut sprite, cont) in q_motion.iter_mut() {
+    for (mut motion, cont) in q_motion.iter_mut() {
         if !cont.is_controllable { return; }
         let key_left = keys.pressed(KeyCode::A);
         let key_right = keys.pressed(KeyCode::D);
@@ -71,11 +66,9 @@ pub fn control_player(
         // left right
         if key_left {
             motion.speed.x -= motion.acc * delta;
-            sprite.flip_x = true;
         }
         if key_right {
             motion.speed.x += motion.acc * delta;
-            sprite.flip_x = false;
         }
         if (key_left && key_right) || (!key_left && !key_right) {
             motion.speed.x -= motion.speed.x * motion.dcc * delta.clamp(0.0, 0.9);
@@ -89,6 +82,7 @@ pub fn move_gun(
     mut cursor_event_reader: EventReader<CursorMoved>,
     mut windows: ResMut<Windows>,
     mut q_gun: Query<&mut Transform, With<Gun>>,
+    mut q_pl: Query<&mut Sprite, Or<(&Player, &Gun)>>,
 ) {
     let mouse = match cursor_event_reader.iter().next() {
         None => return,
@@ -104,8 +98,15 @@ pub fn move_gun(
     };
     let pos_x = mouse.position.x - window.width() / 2.;
     let pos_y = mouse.position.y - window.height() / 2.;
-    let rotation = pos_y.atan2(pos_x);
+    let rotation = (pos_y /pos_x).atan();
     gun_t.rotation = Quat::from_rotation_z(rotation);
+    for mut sprite in q_pl.iter_mut() {
+        if pos_x < 0. {
+            sprite.flip_x = true;
+        } else {
+            sprite.flip_x = false;
+        }
+    }
 }
 
 #[derive(Bundle)]

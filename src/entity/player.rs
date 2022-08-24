@@ -14,7 +14,7 @@ pub fn spawn_player(
     texture: Res<TextureAssets>,
 ) {
     let gun = commands.spawn_bundle(SpriteBundle {
-        transform: Transform::from_xyz(0., 0., 1.),
+        transform: Transform::from_xyz(1., -1., 1.),
         texture: texture.basic_gun.clone(),
         ..default()
     })
@@ -103,8 +103,10 @@ pub fn move_gun(
     for mut sprite in q_pl.iter_mut() {
         if pos_x < 0. {
             sprite.flip_x = true;
+            gun_t.translation.x = -1.;
         } else {
             sprite.flip_x = false;
+            gun_t.translation.x = 1.;
         }
     }
 }

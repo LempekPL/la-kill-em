@@ -2,7 +2,6 @@ use bevy::app::AppExit;
 use bevy::prelude::*;
 use crate::{AppState, GameState};
 use crate::asset_loader::TextureAssets;
-use crate::Keyframes::Scale;
 
 pub struct MenuPlugin;
 

@@ -16,7 +16,7 @@ use crate::menus::MenuPlugin;
 
 fn main() {
     let mut app = App::new();
-    app.insert_resource(ClearColor(Color::GRAY));
+    app.insert_resource(ClearColor(Color::BLACK));
     app.insert_resource(ImageSettings::default_nearest());
     app.insert_resource(WindowDescriptor {
         title: "la-kill-em".to_string(),

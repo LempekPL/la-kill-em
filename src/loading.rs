@@ -25,7 +25,13 @@ fn preload(
     asset_server: Res<AssetServer>,
     mut wi_params: ResMut<WorldInspectorParams>
 ) {
-    commands.spawn_bundle(Camera2dBundle::default())
+    commands.spawn_bundle(Camera2dBundle {
+        projection: OrthographicProjection {
+            scale: 0.4,
+            ..default()
+        },
+        ..default()
+    })
         .insert(UiCameraConfig { show_ui: true });
     // loading text
     commands.spawn_bundle(NodeBundle {

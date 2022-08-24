@@ -1,56 +1,27 @@
+use bevy::math::{Affine3A, Mat3A, Vec3A};
 use bevy::prelude::*;
 use bevy::render::texture::DEFAULT_IMAGE_HANDLE;
-use bevy_inspector_egui::{Inspectable, RegisterInspectable};
-use crate::{AppState, GameState};
 use crate::asset_loader::TextureAssets;
+use crate::entity::{Controllable, GameEntity, Hitbox, Motion};
+
+#[derive(Component)]
+pub struct Gun;
 
 #[derive(Component)]
 pub struct Player;
 
-#[derive(Component)]
-struct GameEntity;
-
-#[derive(Component, Inspectable)]
-pub struct Motion {
-    #[inspectable(min = 0.001, max = 2.0)]
-    pub acc: f32,
-    #[inspectable(min = 0.001, max = 2.0)]
-    pub dcc: f32,
-    pub speed: Vec2,
-}
-
-#[derive(Component)]
-pub struct Hitbox(Vec2);
-
-#[derive(Component, Inspectable, Default)]
-pub struct Controllable {
-    pub is_controllable: bool,
-}
-
-pub struct EntityPlugin;
-
-impl Plugin for EntityPlugin {
-    fn build(&self, app: &mut App) {
-        app
-            .add_system_set(SystemSet::on_enter(AppState::Game(GameState::Playing))
-                .with_system(spawn_player)
-            )
-            .add_system_set(SystemSet::on_update(AppState::Game(GameState::Playing))
-                .with_system(entity_motion)
-                .with_system(control_player)
-            );
-        app.add_system_set(SystemSet::on_enter(AppState::Menu)
-            .with_system(despawn_player)
-        );
-        app.register_inspectable::<Motion>();
-        app.register_inspectable::<Controllable>();
-    }
-}
-
-fn spawn_player(
+pub fn spawn_player(
     mut commands: Commands,
     texture: Res<TextureAssets>,
 ) {
+    let gun = commands.spawn_bundle(SpriteBundle {
+        transform: Transform::from_xyz(3., -1.5, 1.),
+        texture: texture.basic_gun.clone(),
+        ..default()
+    })
+        .insert(Name::new("Gun"))
+        .insert(Gun)
+        .id();
     commands.spawn_bundle(PlayerBundle {
         sprite: Sprite {
             custom_size: Some(Vec2::new(16.0, 32.0)),
@@ -62,25 +33,27 @@ fn spawn_player(
     })
         .insert(GameEntity)
         .insert(Player)
-        .insert(Name::new("Player"));
+        .insert(Name::new("Player"))
+        .add_child(gun);
 }
 
-fn despawn_player(
+pub fn despawn_player(
     mut commands: Commands,
     q_ent: Query<Entity, With<Player>>,
 ) {
     for ent in q_ent.iter() {
-        commands.entity(ent).despawn();
+        commands.entity(ent).despawn_recursive();
     }
 }
 
-fn control_player(
-    mut q_motion: Query<(&mut Motion, &mut Sprite)>,
+pub fn control_player(
+    mut q_motion: Query<(&mut Motion, &mut Sprite, &Controllable)>,
     keys: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
     let delta = time.delta_seconds() * 100.0;
-    for (mut motion, mut sprite) in q_motion.iter_mut() {
+    for (mut motion, mut sprite, cont) in q_motion.iter_mut() {
+        if !cont.is_controllable { return; }
         let key_left = keys.pressed(KeyCode::A);
         let key_right = keys.pressed(KeyCode::D);
         let key_up = keys.pressed(KeyCode::W);
@@ -112,15 +85,27 @@ fn control_player(
     }
 }
 
-fn entity_motion(
-    mut q_motion: Query<(&mut Transform, &Motion), With<GameEntity>>,
-    time: Res<Time>,
+pub fn move_gun(
+    mut cursor_event_reader: EventReader<CursorMoved>,
+    mut windows: ResMut<Windows>,
+    mut q_gun: Query<&mut Transform, With<Gun>>,
 ) {
-    let delta = time.delta_seconds() * 100.0;
-    for (mut movement, motion) in q_motion.iter_mut() {
-        movement.translation.x += motion.speed.x * delta;
-        movement.translation.y += motion.speed.y * delta;
-    }
+    let mouse = match cursor_event_reader.iter().next() {
+        None => return,
+        Some(s) => s,
+    };
+    let mut gun_t = match q_gun.get_single_mut() {
+        Ok(g) => g,
+        Err(_) => return,
+    };
+    let window = match windows.get_primary_mut() {
+        None => return,
+        Some(s) => s,
+    };
+    let pos_x = mouse.position.x - window.width() / 2.;
+    let pos_y = mouse.position.y - window.height() / 2.;
+    let rotation = pos_y.atan2(pos_x);
+    gun_t.rotation = Quat::from_rotation_z(rotation);
 }
 
 #[derive(Bundle)]
@@ -146,35 +131,10 @@ impl Default for PlayerBundle {
             hitbox: Default::default(),
             visibility: Default::default(),
             computed_visibility: Default::default(),
-            controllable: Default::default(),
+            controllable: Controllable {
+                is_controllable: true
+            },
             motion: Default::default(),
         }
     }
 }
-
-impl Motion {
-    fn new(acc: f32, dcc: f32) -> Self {
-        Self {
-            acc,
-            dcc,
-            speed: Vec2::new(0.0, 0.0),
-        }
-    }
-}
-
-impl Default for Motion {
-    fn default() -> Self {
-        Self {
-            acc: 1.0,
-            dcc: 1.0,
-            speed: Vec2::new(0.0, 0.0),
-        }
-    }
-}
-
-impl Default for Hitbox {
-    fn default() -> Self {
-        Self(Vec2::ZERO)
-    }
-}
-

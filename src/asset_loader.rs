@@ -28,6 +28,10 @@ pub struct TextureAssets {
     pub b_quit_pressed: Handle<Image>,
     #[asset(path = "textures/title.png")]
     pub title: Handle<Image>,
+    #[asset(path = "textures/guns/basic-gun.png")]
+    pub basic_gun: Handle<Image>,
+    #[asset(path = "textures/bullets/basic-bullet.png")]
+    pub basic_bullet: Handle<Image>,
 }
 
 pub struct AssetsPlugin;

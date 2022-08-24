@@ -35,7 +35,7 @@ impl Plugin for EntityPlugin {
                 .with_system(spawn_player)
             )
             .add_system_set(SystemSet::on_update(AppState::Game(GameState::Playing))
-                .with_system(entity_motion)
+                .with_system(entity_motion.label("movement"))
                 .with_system(control_player)
                 .with_system(move_gun)
             );

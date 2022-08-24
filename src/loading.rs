@@ -27,7 +27,7 @@ fn preload(
 ) {
     commands.spawn_bundle(Camera2dBundle {
         projection: OrthographicProjection {
-            scale: 0.4,
+            scale: 0.2,
             ..default()
         },
         ..default()

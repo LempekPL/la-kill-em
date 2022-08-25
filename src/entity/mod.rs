@@ -3,7 +3,7 @@ pub(crate) mod player;
 use bevy::prelude::*;
 use bevy_inspector_egui::{Inspectable, RegisterInspectable};
 use crate::{AppState, GameState};
-use crate::entity::player::{control_player, despawn_player, move_gun, spawn_player};
+use crate::entity::player::PlayerPlugin;
 
 
 #[derive(Component)]
@@ -30,17 +30,9 @@ pub struct EntityPlugin;
 
 impl Plugin for EntityPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_system_set(SystemSet::on_enter(AppState::Game(GameState::Playing))
-                .with_system(spawn_player)
-            )
-            .add_system_set(SystemSet::on_update(AppState::Game(GameState::Playing))
-                .with_system(entity_motion.label("movement"))
-                .with_system(control_player)
-                .with_system(move_gun)
-            );
-        app.add_system_set(SystemSet::on_enter(AppState::Menu)
-            .with_system(despawn_player)
+        app.add_plugin(PlayerPlugin);
+        app.add_system_set(SystemSet::on_update(AppState::Game(GameState::Playing))
+            .with_system(entity_motion.label("movement"))
         );
         app.register_inspectable::<Motion>();
         app.register_inspectable::<Controllable>();

@@ -1,15 +1,54 @@
+use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::render::texture::DEFAULT_IMAGE_HANDLE;
+use crate::{AppState, GameState};
 use crate::asset_loader::TextureAssets;
 use crate::entity::{Controllable, GameEntity, Hitbox, Motion};
+
+
+#[derive(Component)]
+pub struct Player;
 
 #[derive(Component)]
 pub struct Gun;
 
 #[derive(Component)]
-pub struct Player;
+pub struct Bullet(f32);
 
-pub fn spawn_player(
+#[derive(Component)]
+pub enum BulletType {
+    Basic(Vec3)
+}
+
+impl BulletType {
+    fn speed(&self) -> f32 {
+        match self {
+            BulletType::Basic(_) => 10.,
+        }
+    }
+}
+
+pub struct PlayerPlugin;
+
+impl Plugin for PlayerPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_system_set(SystemSet::on_enter(AppState::Game(GameState::Playing))
+                .with_system(spawn_player)
+            )
+            .add_system_set(SystemSet::on_update(AppState::Game(GameState::Playing))
+                .with_system(control_player)
+                .with_system(move_gun)
+                .with_system(shoot)
+                .with_system(move_bullet)
+            );
+        app.add_system_set(SystemSet::on_enter(AppState::Menu)
+            .with_system(despawn_player)
+        );
+    }
+}
+
+fn spawn_player(
     mut commands: Commands,
     texture: Res<TextureAssets>,
 ) {
@@ -32,7 +71,7 @@ pub fn spawn_player(
         .add_child(gun);
 }
 
-pub fn despawn_player(
+fn despawn_player(
     mut commands: Commands,
     q_ent: Query<Entity, With<Player>>,
 ) {
@@ -41,7 +80,7 @@ pub fn despawn_player(
     }
 }
 
-pub fn control_player(
+fn control_player(
     mut q_motion: Query<(&mut Motion, &Controllable), With<Player>>,
     keys: Res<Input<KeyCode>>,
     time: Res<Time>,
@@ -78,7 +117,7 @@ pub fn control_player(
     }
 }
 
-pub fn move_gun(
+fn move_gun(
     mut cursor_event_reader: EventReader<CursorMoved>,
     mut windows: ResMut<Windows>,
     mut q_gun: Query<&mut Transform, With<Gun>>,
@@ -98,7 +137,7 @@ pub fn move_gun(
     };
     let pos_x = mouse.position.x - window.width() / 2.;
     let pos_y = mouse.position.y - window.height() / 2.;
-    let rotation = (pos_y /pos_x).atan();
+    let rotation = (pos_y / pos_x).atan();
     gun_t.rotation = Quat::from_rotation_z(rotation);
     for mut sprite in q_pl.iter_mut() {
         if pos_x < 0. {
@@ -107,6 +146,49 @@ pub fn move_gun(
         } else {
             sprite.flip_x = false;
             gun_t.translation.x = 1.;
+        }
+    }
+}
+
+fn shoot(
+    mut commands: Commands,
+    texture: Res<TextureAssets>,
+    input: Res<Input<MouseButton>>,
+    q_gun: Query<(&Transform, &GlobalTransform), With<Gun>>,
+) {
+    if input.just_pressed(MouseButton::Left) {
+    let (tr, g_tr) = match q_gun.get_single() {
+        Ok(g) => g,
+        Err(_) => return,
+    };
+    commands.spawn_bundle(SpriteBundle {
+        transform: Transform {
+            translation: g_tr.translation() - Vec3::new(0., 0., 1.),
+            rotation: tr.rotation,
+            ..default()
+        },
+        texture: texture.basic_bullet.clone(),
+        ..default()
+    })
+        .insert(Bullet(tr.translation.x))
+        .insert(BulletType::Basic(g_tr.translation()));
+    }
+}
+
+fn move_bullet(
+    mut commands: Commands,
+    mut q_bullet: Query<(&mut Transform, &BulletType, &Bullet, Entity), With<Bullet>>,
+) {
+    for (mut tf, bt, bullet, ent) in q_bullet.iter_mut() {
+        let rot = tf.rotation.to_euler(EulerRot::XYZ).2;
+        tf.translation.x += bullet.0 * bt.speed() * rot.cos();
+        tf.translation.y += bullet.0 * bt.speed() * rot.sin();
+        match bt {
+            BulletType::Basic(start) => {
+                if start.distance(tf.translation) > 1000. {
+                    commands.entity(ent).despawn();
+                }
+            }
         }
     }
 }

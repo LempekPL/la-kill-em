@@ -32,6 +32,10 @@ pub struct TextureAssets {
     pub basic_gun: Handle<Image>,
     #[asset(path = "textures/bullets/basic-bullet.png")]
     pub basic_bullet: Handle<Image>,
+    #[asset(path = "textures/guns/rocket-gun.png")]
+    pub rocket_gun: Handle<Image>,
+    #[asset(path = "textures/bullets/rocket-bullet.png")]
+    pub rocket_bullet: Handle<Image>,
 }
 
 pub struct AssetsPlugin;

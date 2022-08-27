@@ -3,6 +3,7 @@ mod camera;
 mod menus;
 mod loading;
 mod asset_loader;
+mod ui;
 
 use bevy::prelude::*;
 use bevy::render::texture::ImageSettings;
@@ -13,6 +14,7 @@ use crate::asset_loader::AssetsPlugin;
 use crate::camera::CameraPlugin;
 use crate::entity::EntityPlugin;
 use crate::menus::MenuPlugin;
+use crate::ui::UIPlugin;
 
 fn main() {
     let mut app = App::new();
@@ -35,6 +37,7 @@ fn main() {
     app.add_plugin(MenuPlugin);
     app.add_plugin(EntityPlugin);
     app.add_plugin(CameraPlugin);
+    app.add_plugin(UIPlugin);
 
     app.run();
 }

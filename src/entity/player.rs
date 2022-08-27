@@ -1,6 +1,7 @@
-use bevy::math::Vec3Swizzles;
+use std::cmp::min;
 use bevy::prelude::*;
 use bevy::render::texture::DEFAULT_IMAGE_HANDLE;
+use bevy_inspector_egui::{RegisterInspectable, Inspectable};
 use crate::{AppState, GameState};
 use crate::asset_loader::TextureAssets;
 use crate::entity::{Controllable, GameEntity, Hitbox, Motion};
@@ -10,23 +11,50 @@ use crate::entity::{Controllable, GameEntity, Hitbox, Motion};
 pub struct Player;
 
 #[derive(Component)]
-pub struct Gun;
+pub struct UsingGun;
 
-#[derive(Component)]
-pub struct Bullet(f32);
+// inside magazine, magazine size, bullet type it shoots
+#[derive(Component, Inspectable)]
+pub struct Gun(pub u32, pub u32, BulletType);
 
-#[derive(Component)]
-pub enum BulletType {
-    Basic(Vec3)
+impl Gun {
+    fn reload(&mut self, ammo: &mut Ammo) {
+        let amount = min(ammo.0, self.1);
+        ammo.remove(self.1 - self.0);
+        self.0 = amount;
+    }
 }
 
-impl BulletType {
+#[derive(Component, Inspectable)]
+pub struct Ammo(pub u32);
+
+impl Ammo {
+    fn remove(&mut self, amount: u32) {
+        self.0 -= min(amount, self.0);
+    }
+}
+
+// bullet direction, bullet type, bullet origin
+#[derive(Component, Inspectable)]
+pub struct Bullet(f32, BulletType, Vec3);
+
+#[derive(Component, Inspectable, Clone)]
+pub enum BulletType {
+    Basic,
+    Rocket,
+}
+
+impl Bullet {
     fn speed(&self) -> f32 {
-        match self {
-            BulletType::Basic(_) => 10.,
+        match self.1 {
+            BulletType::Basic => 50.,
+            BulletType::Rocket => 10.,
         }
     }
 }
+
+#[derive(Component, Inspectable)]
+pub struct Belt(i8);
 
 pub struct PlayerPlugin;
 
@@ -34,21 +62,28 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_system_set(SystemSet::on_enter(AppState::Game(GameState::Playing))
-                .with_system(spawn_player)
+                .with_system(spawn_player_with_guns)
             )
             .add_system_set(SystemSet::on_update(AppState::Game(GameState::Playing))
                 .with_system(control_player)
-                .with_system(move_gun)
-                .with_system(shoot)
+                .with_system(move_gun.after("change").label("gun"))
+                .with_system(shoot.after("gun").after("change").label("shoot"))
                 .with_system(move_bullet)
+                .with_system(change_gun.label("change"))
+                .with_system(manual_reload.after("change"))
             );
         app.add_system_set(SystemSet::on_enter(AppState::Menu)
             .with_system(despawn_player)
         );
+        app.register_inspectable::<Belt>();
+        app.register_inspectable::<Gun>();
+        app.register_inspectable::<Ammo>();
+        app.register_inspectable::<Bullet>();
+        app.register_inspectable::<BulletType>();
     }
 }
 
-fn spawn_player(
+fn spawn_player_with_guns(
     mut commands: Commands,
     texture: Res<TextureAssets>,
 ) {
@@ -58,7 +93,23 @@ fn spawn_player(
         ..default()
     })
         .insert(Name::new("Gun"))
-        .insert(Gun)
+        .insert(Gun(6, 6, BulletType::Basic))
+        .insert(Ammo(36))
+        .insert(UsingGun)
+        .insert(Belt(0))
+        .id();
+    let rocket = commands.spawn_bundle(SpriteBundle {
+        transform: Transform::from_xyz(2., 0., 1.),
+        texture: texture.rocket_gun.clone(),
+        visibility: Visibility {
+            is_visible: false
+        },
+        ..default()
+    })
+        .insert(Name::new("Rocket Gun"))
+        .insert(Gun(1, 1, BulletType::Rocket))
+        .insert(Ammo(10))
+        .insert(Belt(1))
         .id();
     commands.spawn_bundle(PlayerBundle {
         texture: texture.player.clone(),
@@ -68,7 +119,8 @@ fn spawn_player(
         .insert(GameEntity)
         .insert(Player)
         .insert(Name::new("Player"))
-        .add_child(gun);
+        .insert(Belt(0))
+        .push_children(&[gun, rocket]);
 }
 
 fn despawn_player(
@@ -77,6 +129,49 @@ fn despawn_player(
 ) {
     for ent in q_ent.iter() {
         commands.entity(ent).despawn_recursive();
+    }
+}
+
+fn manual_reload(
+    keys: Res<Input<KeyCode>>,
+    mut q_gun: Query<(&mut Gun, &mut Ammo), With<UsingGun>>,
+) {
+    if keys.just_pressed(KeyCode::R) {
+        let (mut gun, mut ammo) = q_gun.single_mut();
+        if ammo.0 == 0 {
+            // TODO: play sound
+            return;
+        }
+        gun.reload(&mut ammo)
+    }
+}
+
+// TODO: update rotation
+fn change_gun(
+    mut commands: Commands,
+    keys: Res<Input<KeyCode>>,
+    mut q_gun: Query<(&mut Visibility, Entity, &Belt), With<Gun>>,
+    mut q_belt: Query<&mut Belt, (With<Player>, Without<Gun>)>,
+) {
+    let mut belt = q_belt.single_mut();
+    if keys.just_pressed(KeyCode::E) {
+        belt.0 += 1;
+    } else if keys.just_pressed(KeyCode::Q) {
+        belt.0 -= 1;
+    }
+    belt.0 = belt.0.clamp(0, q_gun.iter().collect::<Vec<_>>().len() as i8 - 1);
+    for (mut vis, ent, gun_belt) in q_gun.iter_mut() {
+        if belt.0 == gun_belt.0 {
+            commands
+                .entity(ent)
+                .insert(UsingGun);
+            vis.is_visible = true;
+        } else {
+            commands
+                .entity(ent)
+                .remove::<UsingGun>();
+            vis.is_visible = false;
+        }
     }
 }
 
@@ -120,8 +215,8 @@ fn control_player(
 fn move_gun(
     mut cursor_event_reader: EventReader<CursorMoved>,
     mut windows: ResMut<Windows>,
-    mut q_gun: Query<&mut Transform, With<Gun>>,
-    mut q_pl: Query<&mut Sprite, Or<(&Player, &Gun)>>,
+    mut q_gun: Query<&mut Transform, With<UsingGun>>,
+    mut q_pl: Query<&mut Sprite, Or<(&UsingGun, &Player)>>,
 ) {
     let mouse = match cursor_event_reader.iter().next() {
         None => return,
@@ -142,10 +237,14 @@ fn move_gun(
     for mut sprite in q_pl.iter_mut() {
         if pos_x < 0. {
             sprite.flip_x = true;
-            gun_t.translation.x = -1.;
+            if gun_t.translation.x > 0. {
+                gun_t.translation.x = -gun_t.translation.x;
+            }
         } else {
             sprite.flip_x = false;
-            gun_t.translation.x = 1.;
+            if gun_t.translation.x < 0. {
+                gun_t.translation.x = -gun_t.translation.x;
+            }
         }
     }
 }
@@ -154,38 +253,59 @@ fn shoot(
     mut commands: Commands,
     texture: Res<TextureAssets>,
     input: Res<Input<MouseButton>>,
-    q_gun: Query<(&Transform, &GlobalTransform), With<Gun>>,
+    mut q_gun: Query<(&Transform, &GlobalTransform, &Sprite, &mut Gun, &mut Ammo), With<UsingGun>>,
 ) {
     if input.just_pressed(MouseButton::Left) {
-    let (tr, g_tr) = match q_gun.get_single() {
-        Ok(g) => g,
-        Err(_) => return,
-    };
-    commands.spawn_bundle(SpriteBundle {
-        transform: Transform {
-            translation: g_tr.translation() - Vec3::new(0., 0., 1.),
-            rotation: tr.rotation,
+        let (tr, g_tr, spr, mut gun, mut ammo) = match q_gun.get_single_mut() {
+            Ok(g) => g,
+            Err(_) => return,
+        };
+        if gun.0 == 0 {
+            if ammo.0 == 0 {
+                // TODO: play sound
+                return;
+            }
+            gun.reload(&mut ammo);
+            return;
+        }
+        gun.0 -= 1;
+        let texture = match gun.2 {
+            BulletType::Basic => texture.basic_bullet.clone(),
+            BulletType::Rocket => texture.rocket_bullet.clone(),
+        };
+        commands.spawn_bundle(SpriteBundle {
+            transform: Transform {
+                translation: g_tr.translation() - Vec3::new(0., 0., 1.),
+                rotation: tr.rotation,
+                ..default()
+            },
+            sprite: Sprite {
+                flip_x: spr.flip_x,
+                ..default()
+            },
+            texture,
             ..default()
-        },
-        texture: texture.basic_bullet.clone(),
-        ..default()
-    })
-        .insert(Bullet(tr.translation.x))
-        .insert(BulletType::Basic(g_tr.translation()));
+        })
+            .insert(Bullet(tr.translation.x, gun.2.clone(), g_tr.translation()));
     }
 }
 
 fn move_bullet(
     mut commands: Commands,
-    mut q_bullet: Query<(&mut Transform, &BulletType, &Bullet, Entity), With<Bullet>>,
+    mut q_bullet: Query<(&mut Transform, &Bullet, Entity)>,
 ) {
-    for (mut tf, bt, bullet, ent) in q_bullet.iter_mut() {
+    for (mut tf, bt, ent) in q_bullet.iter_mut() {
         let rot = tf.rotation.to_euler(EulerRot::XYZ).2;
-        tf.translation.x += bullet.0 * bt.speed() * rot.cos();
-        tf.translation.y += bullet.0 * bt.speed() * rot.sin();
-        match bt {
-            BulletType::Basic(start) => {
-                if start.distance(tf.translation) > 1000. {
+        tf.translation.x += bt.0 * bt.speed() * rot.cos();
+        tf.translation.y += bt.0 * bt.speed() * rot.sin();
+        match bt.1 {
+            BulletType::Basic => {
+                if bt.2.distance(tf.translation) > 1000. {
+                    commands.entity(ent).despawn();
+                }
+            }
+            BulletType::Rocket => {
+                if bt.2.distance(tf.translation) > 4000. {
                     commands.entity(ent).despawn();
                 }
             }
